@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stock Predictor — Dashboard</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+      :root{
+        --glass: rgba(255,255,255,0.06);
+        --accent: #0d6efd;
+      }
+      body{
+        background: linear-gradient(180deg, #0f1724 0%, #0d1b2a 100%);
+        color: #e6eef8;
+        min-height: 100vh;
+        -webkit-font-smoothing:antialiased;
+      }
+      .card-glass{
+        background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+        border: 1px solid rgba(255,255,255,0.04);
+        box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+        color: #e6eef8;
+      }
+      .muted-light{ color: #9fb0c8; }
+      .btn-accent{
+        background: linear-gradient(90deg,#2b9bff,#0d6efd);
+        border: none;
+        color: #fff;
+      }
+      .small-muted{ color:#9fb0c8; font-size:0.9rem; }
+      .result-badge{ font-size: .95rem; padding: .45rem .6rem; border-radius: .5rem; }
+      .table-light-custom thead th { background: rgba(255,255,255,0.03); color: #cfe7ff; border-bottom: 1px solid rgba(255,255,255,0.04); }
+      .spinner-visible{ display:inline-block; vertical-align:middle; margin-left:8px; }
+      footer{ color:#9fb0c8; font-size:0.8rem; margin-top:24px; text-align:center; }
+      .img-card { background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); padding: .75rem; border-radius: .5rem; }
+      @media (max-width: 992px){ .col-right { margin-top: 1.25rem; } }
+    </style>
+  </head>
+
+  <body>
+    <div class="container py-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h2 class="mb-0">📈 Stock Predictor</h2>
+          <div class="small-muted">Interactive demo using <strong>NumPy</strong>, <strong>pandas</strong>, <strong>scikit-learn</strong>, <strong>matplotlib</strong></div>
+        </div>
+        <div class="text-end">
+          <span class="small-muted">Built with</span>
+          <div class="mt-1">
+            <span class="badge bg-transparent border border-1 text-light me-1">NumPy</span>
+            <span class="badge bg-transparent border border-1 text-light me-1">pandas</span>
+            <span class="badge bg-transparent border border-1 text-light me-1">scikit-learn</span>
+            <span class="badge bg-transparent border border-1 text-light">matplotlib</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- LEFT: Controls -->
+        <div class="col-lg-4">
+          <div class="card card-glass p-3">
+            <h5 class="mb-2">Configuration</h5>
+
+            <div class="mb-2">
+              <label class="form-label small-muted">Data Source</label>
+              <select id="dataSource" class="form-select form-select-sm">
+                <option value="csv">Local CSV (dataset.csv)</option>
+                <option value="yfinance">yfinance (requires internet & yfinance lib)</option>
+              </select>
+              <div class="small-muted mt-1">If dataset.csv exists it will be used first.</div>
+            </div>
+
+            <div class="mb-2">
+              <label class="form-label small-muted">Ticker</label>
+              <input id="ticker" class="form-control form-control-sm" value="AAPL" />
+            </div>
+
+            <div class="row gx-2 mb-2">
+              <div class="col-6">
+                <label class="form-label small-muted">Days</label>
+                <input id="days" type="number" min="50" max="1000" class="form-control form-control-sm" value="300" />
+              </div>
+              <div class="col-6">
+                <label class="form-label small-muted">Horizon (days)</label>
+                <input id="horizon" type="number" min="1" max="30" class="form-control form-control-sm" value="1" />
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small-muted">Model</label>
+              <select id="modelType" class="form-select form-select-sm">
+                <option value="rf" selected>Random Forest (recommended)</option>
+                <option value="linear">Linear Regression</option>
+              </select>
+            </div>
+
+            <div class="d-grid gap-2">
+              <button id="btnPreview" class="btn btn-accent btn-sm">
+                <i class="fa-solid fa-chart-line"></i> Preview Plot
+              </button>
+              <button id="btnSummary" class="btn btn-outline-light btn-sm">
+                <i class="fa-solid fa-list"></i> Get Summary
+              </button>
+              <button id="btnTrain" class="btn btn-success btn-sm">
+                <i class="fa-solid fa-robot"></i> Train & Predict
+                <span id="trainSpinner" class="spinner-border spinner-border-sm spinner-visible" role="status" style="display:none;"></span>
+              </button>
+            </div>
+
+            <hr class="my-3" />
+
+            <div>
+              <h6 class="mb-1">Quick tips</h6>
+              <ul class="small-muted mb-0" style="line-height:1.4rem">
+                <li>Use dataset.csv for offline demo (run <code>make_dataset.py</code>).</li>
+                <li>Try changing Horizon to see short-term vs multi-day prediction.</li>
+                <li>Random Forest needs more rows to generalize — use >200 rows.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card card-glass mt-3 p-3 small-muted">
+            <h6 class="mb-2">Live info</h6>
+            <div id="summaryBox">No summary loaded yet. Click <strong>Get Summary</strong>.</div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Results + Plot -->
+        <div class="col-lg-8 col-right">
+          <div class="row g-3">
+            <div class="col-md-7">
+              <div class="card card-glass p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <div>
+                    <h6 class="mb-0">Actual Price Plot</h6>
+                    <div class="small-muted">From the selected data source</div>
+                  </div>
+                  <div><span id="plotBadge" class="badge bg-transparent border text-light">PNG</span></div>
+                </div>
+
+                <div class="img-card text-center">
+                  <img id="plotImg" src="/api/plot?ticker=AAPL&days=300" alt="plot" class="img-fluid" style="max-height:380px; width:auto;">
+                </div>
+
+                <div class="mt-2 d-flex gap-2">
+                  <button id="downloadPlot" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-download"></i> Download PNG</button>
+                  <button id="refreshPlot" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-rotate"></i> Refresh</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-5">
+              <div class="card card-glass p-3">
+                <h6 class="mb-2">Prediction Summary</h6>
+                <div id="predictionCard" class="text-start">
+                  <div class="muted-light">No prediction yet — click <strong>Train & Predict</strong>.</div>
+                </div>
+                <div class="mt-2 small-muted">
+                  <strong>Notes:</strong> MAE shown is on test-split; smaller is better.
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card card-glass p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">Last Rows (features & target)</h6>
+                  <div class="small-muted">Shows last 10 rows returned from the model data</div>
+                </div>
+                <div class="table-responsive" style="max-height:260px; overflow:auto;">
+                  <table id="lastRowsTable" class="table table-borderless table-sm table-light-custom mb-0">
+                    <thead><tr id="lastRowsHead"></tr></thead>
+                    <tbody id="lastRowsBody"></tbody>
+                  </table>
+                </div>
+                <div class="mt-2">
+                  <button id="downloadJson" class="btn btn-outline-light btn-sm"><i class="fa-solid fa-file-export"></i> Download JSON</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <footer class="mt-4">Tip: run <code>python make_dataset.py</code> to create a `dataset.csv` if you want full offline demo.</footer>
+    </div>
+
+    <!-- Bootstrap + popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      const el = (id) => document.getElementById(id);
+
+      function qs(selector){ return document.querySelector(selector); }
+
+      // Build plot URL from current inputs
+      function buildPlotUrl(){
+        const ticker = el("ticker").value || "AAPL";
+        const days = parseInt(el("days").value) || 300;
+        const source = el("dataSource").value;
+        // server chooses data source; endpoint ignores 'source' param, but keep for future
+        return `/api/plot?ticker=${encodeURIComponent(ticker)}&days=${days}`;
+      }
+
+      // Update plot image src (cache-busting)
+      function updatePlot(){
+        const img = el("plotImg");
+        img.src = buildPlotUrl() + "&_cb=" + Date.now();
+      }
+
+      // Download current plot (open image in new tab)
+      el("downloadPlot").addEventListener("click", () => {
+        window.open(el("plotImg").src, "_blank");
+      });
+
+      el("refreshPlot").addEventListener("click", () => {
+        updatePlot();
+      });
+
+      // Summary fetch
+      async function fetchSummary(){
+        const ticker = el("ticker").value || "AAPL";
+        const days = parseInt(el("days").value) || 300;
+        el("summaryBox").innerHTML = '<span class="small-muted">Loading summary…</span>';
+        try{
+          const res = await fetch(`/api/summary?ticker=${encodeURIComponent(ticker)}&days=${days}`);
+          if(!res.ok){
+            const txt = await res.text();
+            el("summaryBox").innerHTML = `<div class="text-danger">Error: ${txt}</div>`;
+            return;
+          }
+          const json = await res.json();
+          const d = json;
+          const describe = d.describe || {};
+          el("summaryBox").innerHTML = `
+            <div><strong>${d.ticker}</strong> • rows: <span class="badge bg-light text-dark">${d.n_rows}</span></div>
+            <div class="small-muted">Range: ${d.start} → ${d.end}</div>
+            <div class="mt-2 small-muted">
+              mean: ${Number(describe.mean || 0).toFixed(2)}, std: ${Number(describe.std || 0).toFixed(2)}
+              • min: ${Number(describe.min || 0).toFixed(2)}, max: ${Number(describe.max || 0).toFixed(2)}
+            </div>
+          `;
+        }catch(err){
+          el("summaryBox").innerHTML = `<div class="text-danger">Network error: ${err.message}</div>`;
+        }
+      }
+
+      // Train & Predict
+      async function trainAndPredict(){
+        const ticker = el("ticker").value || "AAPL";
+        const days = parseInt(el("days").value) || 300;
+        const model = el("modelType").value || "rf";
+        const horizon = parseInt(el("horizon").value) || 1;
+
+        const spinner = el("trainSpinner");
+        spinner.style.display = "inline-block";
+
+        try{
+          const payload = { ticker, days, model, horizon };
+          const res = await fetch("/api/train_predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+
+          if(!res.ok){
+            const txt = await res.text();
+            el("predictionCard").innerHTML = `<div class="text-danger">Error: ${txt}</div>`;
+            spinner.style.display = "none";
+            return;
+          }
+
+          const j = await res.json();
+
+          // Prediction card
+          el("predictionCard").innerHTML = `
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <div>
+                <div class="small-muted">Ticker</div>
+                <div class="fs-5"><strong>${j.ticker}</strong></div>
+              </div>
+              <div class="text-end">
+                <div class="small-muted">Model</div>
+                <div class="result-badge badge bg-white text-dark">${j.model.toUpperCase()}</div>
+              </div>
+            </div>
+
+            <div class="mt-2">
+              <div class="small-muted">Next predicted close (horizon ${j.horizon}):</div>
+              <div class="fs-4 mt-1"><strong>${Number(j.next_pred_close).toFixed(2)}</strong></div>
+              <div class="small-muted mt-2">MAE (test): <strong>${Number(j.mae_test).toFixed(4)}</strong></div>
+            </div>
+          `;
+
+          // Fill last rows table
+          populateLastRows(j.last_rows || []);
+
+          // enable download JSON
+          el("downloadJson").onclick = () => {
+            const blob = new Blob([JSON.stringify(j, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${j.ticker}_predict.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+          };
+
+          // refresh plot (so you see the same data window)
+          updatePlot();
+
+        }catch(err){
+          el("predictionCard").innerHTML = `<div class="text-danger">Network error: ${err.message}</div>`;
+        } finally {
+          spinner.style.display = "none";
+        }
+      }
+
+      // build table from last_rows (array of objects)
+      function populateLastRows(rows){
+        const head = el("lastRowsHead");
+        const body = el("lastRowsBody");
+        head.innerHTML = "";
+        body.innerHTML = "";
+
+        if(!rows || rows.length === 0){
+          head.innerHTML = `<th>No data</th>`;
+          return;
+        }
+        // get columns from first row's keys (the server returns objects with index + feature keys)
+        const cols = Object.keys(rows[0]);
+        cols.forEach(c => {
+          const th = document.createElement("th");
+          th.textContent = c;
+          head.appendChild(th);
+        });
+
+        rows.forEach(r => {
+          const tr = document.createElement("tr");
+          cols.forEach(c => {
+            const td = document.createElement("td");
+            // keep numeric precision neat
+            const val = r[c];
+            td.innerHTML = (typeof val === 'number') ? Number(val).toFixed(4) : (val ?? "");
+            td.style.whiteSpace = "nowrap";
+            tr.appendChild(td);
+          });
+          body.appendChild(tr);
+        });
+      }
+
+      // event listeners
+      el("btnPreview").addEventListener("click", (e) => {
+        e.preventDefault();
+        updatePlot();
+      });
+      el("btnSummary").addEventListener("click", (e) => {
+        e.preventDefault();
+        fetchSummary();
+      });
+      el("btnTrain").addEventListener("click", (e) => {
+        e.preventDefault();
+        trainAndPredict();
+      });
+
+      // initial load
+      updatePlot();
+
+    </script>
+  </body>
+</html>
+
